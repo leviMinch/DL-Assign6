@@ -38,34 +38,26 @@ class Parity(Dataset):
     # Function to enable batch loader to stack binary strings of different lengths and pad them
     @staticmethod
     def pad_collate(batch):
-      print("Batch Shape:", batch)
-      # Get x and y value with the highest length
-      x_max = 0
-      y_max = 0
-      for sample in batch:
-        if len(batch.x) > x_max:
-          x_max = len(batch.x)
-        if len(batch.y) > y_max:
-          y_max = len(batch.y)
+        # Unzip batch into x and y sequences
+        x_batch, y_batch = zip(*batch)
 
+        # Convert x_batch to tensors of type float32
+        x_seqs = [torch.tensor(x, dtype=torch.float32) for x in x_batch]
 
-      # Extract x sequences and y labels
-      # torch.cat: https://pytorch.org/docs/main/generated/torch.cat.html
-      x_seqs = torch.empty((0,x_max))
-      yy = torch.empty((0,y_max))
-      x_lens = torch.tensor((0,1))
-      for sample in batch:
-        x_seqs.cat(sample.x)
-        yy.cat(sample.y)
-        x_lens.cat(len(sample.x))
+        # Convert y_batch to a tensor of type long
+        y_seqs = torch.tensor([int(y) for y in y_batch], dtype=torch.long)
 
-      # pad xx
-      xx = pad_sequence(x_seqs, batch_first=True, padding_value=0)
+        # Calculate the lengths of x sequences
+        x_lens = torch.tensor([len(x) for x in x_batch], dtype=torch.long)
 
-      return xx, yy, x_lens
+        # Pad the x sequences
+        x_padded = pad_sequence(x_seqs, batch_first=True, padding_value=0)
+
+        return x_padded, y_seqs, x_lens
+
 
 
 def getParityDataloader(training=True, max_length=4, batch_size=1000):
-   dataset = Parity(training, max_length)
-   loader = DataLoader(dataset, batch_size=batch_size, shuffle=training, collate_fn=dataset.pad_collate, drop_last=False)
-   return loader
+  dataset = Parity(training, max_length)
+  loader = DataLoader(dataset, batch_size=batch_size, shuffle=training, collate_fn=dataset.pad_collate, drop_last=False)
+  return loader

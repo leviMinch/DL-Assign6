@@ -11,7 +11,7 @@ class Vocab:
     for x,y in data:
       unique_words.update(x)
       labels.update(y)
-    
+
     self.word2idx = {}
     self.idx2word = {}
     for idx, word in enumerate(unique_words):
@@ -29,7 +29,7 @@ class Vocab:
     for idx, word in enumerate(labels):
       self.label2idx[word] = idx
       self.idx2label[idx] = word
-  
+
   def lenWords(self):
     return len(self.word2idx.items())
 
@@ -59,7 +59,7 @@ class Vocab:
       else:
         out.append("<UNK>")
     return out
-    
+
 
 
 class UDPOSDataset(Dataset):
@@ -78,7 +78,7 @@ class UDPOSDataset(Dataset):
     x = []
     y = []
     filename = "./datasets/UDPOS/en-ud-tag.v2."+split+".txt"
-    with open(filename, "r") as f:  
+    with open(filename, "r") as f:
       for line in f:
         if line == "\n":
           data.append( (x,y) )
@@ -91,11 +91,11 @@ class UDPOSDataset(Dataset):
             y.append(s[1])
     return data
 
-  
+
 
   def __len__(self):
     return len(self.data)
-  
+
   def __getitem__(self, idx):
     x ,y = self.data[idx]
 
@@ -103,15 +103,24 @@ class UDPOSDataset(Dataset):
     y = torch.LongTensor(self.vocab.numeralizeLabels(y))
 
     return x, y
-  
+
   # Function to enable batch loader to stack binary strings of different lengths and pad them
   @staticmethod
   def pad_collate(batch):
-    ###########################################
-    #
-    # Q4 TODO
-    #
-    ###########################################
+    # Extract x sequences and y labels
+    x_seqs = [torch.tensor(x, dtype=torch.float32) for x, y in batch]
+    y_seqs = torch.tensor([int(y) for _, y in batch], dtype=torch.long)
+    x_lens = torch.tensor([len(x) for x, y in batch], dtype=torch.long)
+
+    # Pad sequences
+    x_padded = pad_sequence(x_seqs, batch_first=True, padding_value=1)
+    y_padded = pad_sequence(y_seqs, batch_first=True, padding_value=-1)
+
+    ##############################
+    # POSSIBLE ERROR WITH x_lens #
+    ##############################
+
+    return x_padded, y_padded, x_lens
 
 
 def getUDPOSDataloaders(batch_size=128):
@@ -119,15 +128,15 @@ def getUDPOSDataloaders(batch_size=128):
    val_data = UDPOSDataset(split='dev', vocab=train_data.vocab)
    test_data = UDPOSDataset(split='test', vocab=train_data.vocab)
 
-   train_loader = DataLoader(dataset=train_data, batch_size=batch_size, 
+   train_loader = DataLoader(dataset=train_data, batch_size=batch_size,
               shuffle=True, num_workers=8,
               drop_last=True, collate_fn=UDPOSDataset.pad_collate)
-   
-   val_loader = DataLoader(dataset=val_data, batch_size=batch_size, 
+
+   val_loader = DataLoader(dataset=val_data, batch_size=batch_size,
               shuffle=False, num_workers=8,
               drop_last=False, collate_fn=UDPOSDataset.pad_collate)
-   
-   test_loader = DataLoader(dataset=test_data, batch_size=batch_size, 
+
+   test_loader = DataLoader(dataset=test_data, batch_size=batch_size,
               shuffle=False, num_workers=8,
               drop_last=False, collate_fn=UDPOSDataset.pad_collate)
 

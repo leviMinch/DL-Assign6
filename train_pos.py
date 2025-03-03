@@ -43,9 +43,9 @@ def main():
   label_size = vocab.lenLabels()
 
   # Build model
-  model = PoSGRU(vocab_size=vocab_size, 
-                 embed_dim=config["embed_dim"], 
-                 hidden_dim=config["hidden_dim"], 
+  model = PoSGRU(vocab_size=vocab_size,
+                 embed_dim=config["embed_dim"],
+                 hidden_dim=config["hidden_dim"],
                  num_layers=config["layers"],
                  output_dim=label_size,
                  residual=config["residual"])
@@ -102,25 +102,27 @@ def train(model, train_loader, val_loader):
       y = y.to(device)
 
       out = model(x)
-      
+
 
       ###########################################
       #
       # Q5 TODO Loss
       #
       ###########################################
-      loss = 0
+      loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
+      loss = loss_fn(out,y)
 
       loss.backward()
       optimizer.step()
       optimizer.zero_grad()
-      
+
       ###########################################
       #
       # Q5 TODO Accuracy
       #
       ###########################################
       acc = 0
+
 
 
       wandb.log({"Loss/train": loss.item(), "Acc/train": acc.item()}, step=iteration)
@@ -135,7 +137,7 @@ def train(model, train_loader, val_loader):
     # Q6 TODO Checkpointing
     #
     ###########################################
-      
+
 
     # Adjust LR
     scheduler.step()
