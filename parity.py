@@ -29,7 +29,7 @@ config = {
     "lr":0.001, # learning rate
     "l2reg":0.0, # weight decay
     "max_epoch":300,
-    "linear_warmup":10,
+    "linear_warmup":0, #OG = 10
     "train_length":10,
     "eval_length":2500,
     "hidden_dim":16
@@ -43,7 +43,7 @@ def main():
     model.to(device) # move to GPU if cuda is enabled
 
     train_loader = getParityDataloader(training=True, max_length=config["train_length"], batch_size = config["bs"])
-   
+
     train(model, train_loader)
 
     runParityExperiment(model)
@@ -53,7 +53,7 @@ def main():
 
 
 
-# This function evaluate a model on binary strings ranging from length 1 to 20. 
+# This function evaluate a model on binary strings ranging from length 1 to 20.
 # A plot is saved in the local directory showing accuracy as a function of this length
 def runParityExperiment(model):
     lengths = []
@@ -74,10 +74,10 @@ def runParityExperiment(model):
     f.gca().set_xlim(config["train_length"],config["eval_length"])
     f.gca().set_ylim(0.45,1.05)
     f.tight_layout()
-    
+
     wandb.log({"Viz/length":wandb.Image(f)})
-    
-    
+
+
 
 
 
@@ -117,7 +117,7 @@ def train(model, train_loader):
       lens = lens.to(device)
 
       out = model(x, lens)
-      
+
       loss = crit(out, y)
 
       loss.backward()
@@ -133,7 +133,7 @@ def train(model, train_loader):
 
     # Adjust LR
     scheduler.step()
-  
+
 def evaluate(model, test_loader):
   model.eval()
 

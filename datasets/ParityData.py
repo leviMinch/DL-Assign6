@@ -38,21 +38,21 @@ class Parity(Dataset):
     # Function to enable batch loader to stack binary strings of different lengths and pad them
     @staticmethod
     def pad_collate(batch):
-        # Unzip batch into x and y sequences
+        # this will split the batch into two different sections: x and y
         x_batch, y_batch = zip(*batch)
 
-        # Convert x_batch to tensors of type float32
-        x_seqs = [torch.tensor(x, dtype=torch.float32) for x in x_batch]
+        # # turn x_batch into a tensor with dtype float32
+        # x_seqs = [torch.tensor(x, dtype=torch.float32) for x in x_batch]
 
-        # Convert y_batch to a tensor of type long
-        y_seqs = torch.tensor([int(y) for y in y_batch], dtype=torch.long)
+        # grab the integer value of all y's in the batch
+        y_seqs = torch.tensor([y.item() for y in y_batch], dtype=torch.long)
 
-        # Calculate the lengths of x sequences
+        # grab the length from each x in the x_batch
         x_lens = torch.tensor([len(x) for x in x_batch], dtype=torch.long)
 
-        # Pad the x sequences
-        x_padded = pad_sequence(x_seqs, batch_first=True, padding_value=0)
-
+        # pad x
+        x_padded = pad_sequence(x_batch, batch_first=True, padding_value=0)
+        x_padded = x_padded.unsqueeze(-1)
         return x_padded, y_seqs, x_lens
 
 

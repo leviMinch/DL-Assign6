@@ -16,6 +16,8 @@ from tqdm import tqdm
 from datasets.PoSData import Vocab, getUDPOSDataloaders
 from models.PoSGRU import PoSGRU
 
+import pickle
+
 use_cuda_if_avail = True
 if use_cuda_if_avail and torch.cuda.is_available():
     device = "cuda"
@@ -27,7 +29,7 @@ config = {
     "lr":0.0005, # learning rate
     "l2reg":0.0000001, # weight decay
     "max_epoch":30,
-    "layers": 0,
+    "layers": 2,
     "embed_dim":128,
     "hidden_dim":256,
     "residual":True
@@ -97,6 +99,9 @@ def train(model, train_loader, val_loader):
     # Log LR
     wandb.log({"LR/lr": scheduler.get_last_lr()[0]}, step=iteration)
 
+    # Set best_val very high for later checkpointing
+    best_val = 10000000
+
     for x, y, lens in train_loader:
       x = x.to(device)
       y = y.to(device)
@@ -109,8 +114,16 @@ def train(model, train_loader, val_loader):
       # Q5 TODO Loss
       #
       ###########################################
-      loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
-      loss = loss_fn(out,y)
+      # Reshape `out` from [batch_size, seq_len, num_classes] to [batch_size * seq_len, num_classes]
+      out = out.view(-1, 16)
+
+      # Reshape `y` from [batch_size, seq_len] to [batch_size * seq_len]
+      y = y.view(-1)
+
+      # Compute loss
+      loss_fn = nn.CrossEntropyLoss(ignore_index=-1)  # Ignore padding tokens if applicable
+      loss = loss_fn(out, y)
+
 
       loss.backward()
       optimizer.step()
@@ -121,11 +134,11 @@ def train(model, train_loader, val_loader):
       # Q5 TODO Accuracy
       #
       ###########################################
-      acc = 0
+      acc = (torch.argmax(out, dim=1) == y).to(dtype=float).mean()
 
 
 
-      wandb.log({"Loss/train": loss.item(), "Acc/train": acc.item()}, step=iteration)
+      wandb.log({"Loss/train": loss.item(), "Acc/train": acc}, step=iteration)
       pbar.update(1)
       iteration+=1
 
@@ -137,7 +150,13 @@ def train(model, train_loader, val_loader):
     # Q6 TODO Checkpointing
     #
     ###########################################
+    #Model Checkpointing
+    if val_loss < best_val:
+      best_val = val_loss
+      torch.save(model.state_dict(), "chkpts/" + run_name + "_epoch " + str(epoch))
 
+      with open(f"chkpts/{run_name}_vocab.pkl", 'wb') as vocab_file:
+        pickle.dump(train_loader.dataset.vocab, vocab_file)
 
     # Adjust LR
     scheduler.step()
@@ -150,9 +169,36 @@ def evaluate(model, loader):
   ###########################################
   #
   # Q6 TODO
-  #
+  # Used code from assignment 4
   ###########################################
+  model.eval()
 
+  running_loss = 0
+  running_acc = 0
+  criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+
+  for x,y, lens in loader:
+
+    x = x.to(device)
+    y = y.to(device)
+    lens = lens.to(device)
+
+    out = model(x)
+
+    # Reshape `out` from [batch_size, seq_len, num_classes] to [batch_size * seq_len, num_classes]
+    out = out.view(-1, out.shape[-1])  # (256 * 75, 16)
+
+    # Reshape `y` from [batch_size, seq_len] to [batch_size * seq_len]
+    y = y.view(-1)  # (256 * 75)
+    print("y:", y)
+    loss = criterion(out,y)
+
+    acc = (torch.argmax(out, dim=1) == y).to(dtype=float).sum()
+
+    running_loss += loss.item()
+    running_acc += acc.item()
+
+  nonpad = len(loader.dataset)
   return running_loss/nonpad, running_acc/nonpad
 
 def generateRunName():
@@ -162,5 +208,22 @@ def generateRunName():
   return run_name
 
 
+if __name__ == "__main__":
+  main()
 
-main()
+
+
+# Pull request 5
+
+def remove_odds(arr):
+  """ Receives a list of integers and removes all odd numbers and
+  returns a sorted list (ascending) without making changes to the original list (arr) """
+
+  new_list = []
+  for num in arr:
+    if num % 2 == 0:
+      new_list.append(num)
+
+  new_list.sort()
+
+  return new_list

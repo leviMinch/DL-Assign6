@@ -78,7 +78,7 @@ class UDPOSDataset(Dataset):
     x = []
     y = []
     filename = "./datasets/UDPOS/en-ud-tag.v2."+split+".txt"
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8") as f:
       for line in f:
         if line == "\n":
           data.append( (x,y) )
@@ -108,8 +108,8 @@ class UDPOSDataset(Dataset):
   @staticmethod
   def pad_collate(batch):
     # Extract x sequences and y labels
-    x_seqs = [torch.tensor(x, dtype=torch.float32) for x, y in batch]
-    y_seqs = torch.tensor([int(y) for _, y in batch], dtype=torch.long)
+    x_seqs = [torch.tensor(x, dtype=torch.long) for x, y in batch]
+    y_seqs = [torch.tensor(y, dtype=torch.long) for x, y in batch]
     x_lens = torch.tensor([len(x) for x, y in batch], dtype=torch.long)
 
     # Pad sequences
@@ -119,7 +119,6 @@ class UDPOSDataset(Dataset):
     ##############################
     # POSSIBLE ERROR WITH x_lens #
     ##############################
-
     return x_padded, y_padded, x_lens
 
 
@@ -129,16 +128,16 @@ def getUDPOSDataloaders(batch_size=128):
    test_data = UDPOSDataset(split='test', vocab=train_data.vocab)
 
    train_loader = DataLoader(dataset=train_data, batch_size=batch_size,
-              shuffle=True, num_workers=8,
-              drop_last=True, collate_fn=UDPOSDataset.pad_collate)
+              shuffle=True, num_workers=0,
+              drop_last=True, collate_fn=UDPOSDataset.pad_collate, persistent_workers=False)
 
    val_loader = DataLoader(dataset=val_data, batch_size=batch_size,
-              shuffle=False, num_workers=8,
-              drop_last=False, collate_fn=UDPOSDataset.pad_collate)
+              shuffle=False, num_workers=0,
+              drop_last=False, collate_fn=UDPOSDataset.pad_collate, persistent_workers=False)
 
    test_loader = DataLoader(dataset=test_data, batch_size=batch_size,
-              shuffle=False, num_workers=8,
-              drop_last=False, collate_fn=UDPOSDataset.pad_collate)
+              shuffle=False, num_workers=0,
+              drop_last=False, collate_fn=UDPOSDataset.pad_collate, persistent_workers=False)
 
    return train_loader, val_loader, test_loader, train_data.vocab
 

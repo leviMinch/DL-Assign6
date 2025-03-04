@@ -1,48 +1,42 @@
 import torch
 from torch import nn
-from torch.nn.utils.rnn import pack_padded_sequence
 
 
-class PoSGRU(nn.Module) :
+class PoSGRU(nn.Module):
+    def __init__(self, vocab_size=1000, embed_dim=16, hidden_dim=16, num_layers=2, output_dim=10, residual=True):
+        super().__init__()
 
-    def __init__(self, vocab_size=1000, embed_dim=16, hidden_dim=16, num_layers=2, output_dim=10, residual=True) :
-      super().__init__()
-      ###########################################
-      #
-      # Q4 TODO
-      #
-      ###########################################
+        self.residual = residual
 
-      #####################
-      # Add padding layer #
-      #####################
-      self.embed = nn.Embedding(num_embeddings=embed_dim, embedding_dim=vocab_size)
-      self.embedToGru = nn.Linear(in_features=embed_dim, out_features=hidden_dim)
+        # Embedding layer with padding index
+        self.embed = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embed_dim, padding_idx=1)
+        self.embedToGru = nn.Linear(in_features=embed_dim, out_features=hidden_dim)
 
-      #appending all the GRUS
-      self.grus = nn.ModuleList()
-      for _ in range(num_layers):
-        self.grus.append(nn.GRU(input_size=hidden_dim, hidden_size=hidden_dim//2, bidirectional=True))
+        # GRU layers (bidirectional)
+        self.grus = nn.ModuleList([
+            nn.GRU(input_size=hidden_dim, hidden_size=hidden_dim // 2, bidirectional=True, batch_first=True)
+            for _ in range(num_layers)
+        ])
 
-      self.gruToGelu = nn.Linear(in_features=hidden_dim, out_features=hidden_dim)
-      self.gelu = nn.Gelu()
-      self.output = nn.Linear(in_features=hidden_dim, out_features=output_dim)
-
-
+        # Classification layers
+        self.gruToGelu = nn.Linear(in_features=hidden_dim, out_features=hidden_dim)
+        self.gelu = nn.GELU()
+        self.output = nn.Linear(in_features=hidden_dim, out_features=output_dim)
 
     def forward(self, x):
-      ###########################################
-      #
-      # Q4 TODO
-      #
-      ###########################################
-      x = self.embed(x)
-      x = self.embedToGru(x)
-      for layer in self.grus:
-        x = layer(x)
+        print("Shape of x:", x.shape)
+        x = self.embed(x)
+        print("shape after embedding:", x.shape)
+        x = self.embedToGru(x)
 
-      x = self.gruToGelu(x)
-      x = self.gelu(x)
-      x = self.output(x)
+        for layer in self.grus:
+            residual = x.clone()  # Prevent in-place modification issue
+            x, _ = layer(x)
+            if self.residual:
+                x = x + residual  # Add residual connection
 
-      return x
+        x = self.gruToGelu(x)
+        x = self.gelu(x)
+        x = self.output(x)
+
+        return x
